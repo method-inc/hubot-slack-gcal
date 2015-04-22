@@ -24,7 +24,7 @@ module.exports = function(robot) {
   
   function reply_with_new_event(msg, event, pretext) {
     var attachment = helpers.event_slack_attachment(event, pretext);
-    robot.emit('slack.attachment', {channel: msg.room, attachments: [attachment]});
+    robot.emit('slack.attachment', {channel: msg.message.room, attachments: [attachment]});
   }
 
   function getPrimaryCalendar(oauth, cb) {
