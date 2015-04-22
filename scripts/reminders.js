@@ -61,7 +61,7 @@ module.exports = function(robot) {
         var attachment = helpers.event_slack_attachment(event, "Your event starts " + moment(new Date(event.start.dateTime)).fromNow(), {when: false, hangout: true});
         var user = robot.brain.userForId(user_id);
         robot.emit("google:calendar:actionable_event", user, event);
-        helpers.dm(user, undefined, attachment);
+        helpers.dm(robot, user, undefined, attachment);
       });
     });
     _.delay(checkReminders, 60000-((new Date()) - moment().startOf('minute')));
@@ -142,7 +142,7 @@ module.exports = function(robot) {
                       recurrences[old_event.recurringEventId] = true;
                     }
                     var attachment = helpers.event_slack_attachment(old_event, "This event has been cancelled and removed from your calendar:", {description: false, hangout: false, organizer: false, location: false});
-                    helpers.dm(user, undefined, attachment);
+                    helpers.dm(robot, user, undefined, attachment);
                   }
                 }
                 else {
@@ -169,11 +169,11 @@ module.exports = function(robot) {
                           }
                         });
                         if(new_attendees.length > 0) {
-                          helpers.dm(user, _.map(new_attendees, function(a) { return a.displayName || a.email; }).join(", ") + " was invited to " + helpers.format_event_name(new_event));
+                          helpers.dm(robot, user, _.map(new_attendees, function(a) { return a.displayName || a.email; }).join(", ") + " was invited to " + helpers.format_event_name(new_event));
                           robot.emit("google:calendar:actionable_event", user, new_event);
                         }
                         _.each(updated_attendees, function(a) {
-                          helpers.dm(user, (a.displayName || a.email) + " *" + status_text[a.responseStatus] + "* the event " + helpers.format_event_name(new_event));
+                          helpers.dm(robot, user, (a.displayName || a.email) + " *" + status_text[a.responseStatus] + "* the event " + helpers.format_event_name(new_event));
                           robot.emit("google:calendar:actionable_event", user, new_event);
                         });
                       }
@@ -189,7 +189,7 @@ module.exports = function(robot) {
                   }
                   if(changes) {
                     reply = "The event " + helpers.format_event_name(old_event) + " has been updated:" + reply;
-                    helpers.dm(user, reply);
+                    helpers.dm(robot, user, reply);
                     robot.emit("google:calendar:actionable_event", user, new_event);
                   }
                   _.extend(old_event, new_event);
@@ -205,7 +205,7 @@ module.exports = function(robot) {
                 if(!new_event.creator.self) {
                   var attachment = helpers.event_slack_attachment(new_event, "You have been invited to the following event:", {myStatus: false});
                   robot.emit("google:calendar:actionable_event", user, new_event);
-                  helpers.dm(user, undefined, attachment);
+                  helpers.dm(robot, user, undefined, attachment);
                 }
               }
             });
