@@ -27,12 +27,7 @@ module.exports = function(robot) {
   // default reminder times for each user
   var user_default_reminders = {};
 
-  var status_text = {
-    "needsAction": "No response",
-    "declined": "Declined",
-    "tentative": "Maybe",
-    "accepted": "Accepted"
-  };
+  var status_text = helpers.status_text;
 
 
   // set up watch renewal and get initial events list on startup
