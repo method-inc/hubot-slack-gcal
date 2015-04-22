@@ -10,6 +10,7 @@
 
 module.exports = function(robot) {
   var _ = require('underscore'),
+      helpers = require('../lib/helpers'),
       Util = require("util"),
       Fs = require("fs"),
       googleapis = require('googleapis');
@@ -19,6 +20,11 @@ module.exports = function(robot) {
     groups = JSON.parse(Fs.readFileSync("calendar-resources.json").toString());
   } catch(e) {
     console.warn("Could not find calendar-resources.json file");
+  }
+  
+  function reply_with_new_event(msg, event, pretext) {
+    var attachment = helpers.event_slack_attachment(event, pretext);
+    robot.emit('slack.attachment', {channel: msg.room, attachments: [attachment]});
   }
 
   function getPrimaryCalendar(oauth, cb) {
@@ -77,7 +83,7 @@ module.exports = function(robot) {
           if(err || !event) { msg.reply("Error creating event"); return console.log(err); }
           googleapis.calendar('v3').events.patch({ auth: oauth, calendarId: calendar.id, eventId: event.id, resource: { attendees: [ { email: room } ] } }, function(err, event) {
             if(err || !event) return msg.reply("Error reserving room");
-            msg.reply("OK, I reserved " + room_name + " for you: " + event.htmlLink);
+            reply_with_new_event(msg, event, "OK, I reserved " + room_name + " for you:");
             msg.message.user.last_event = event.id;
             msg.message.user.last_event_calendar = calendar.id;
           });
@@ -97,7 +103,7 @@ module.exports = function(robot) {
           var id = event.id;
           msg.message.user.last_event = id;
           msg.message.user.last_event_calendar = calendar.id;
-          msg.reply("OK, I created an event for you: " + event.htmlLink);
+          reply_with_new_event(msg, event, "OK, I created an event for you:");
         });
       });
     });
