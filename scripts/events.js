@@ -11,13 +11,14 @@
 module.exports = function(robot) {
   var _ = require('underscore'),
       Util = require("util"),
+      Fs = require("fs"),
       googleapis = require('googleapis');
 
   var groups = {};
   try {
     groups = JSON.parse(Fs.readFileSync("calendar-resources.json").toString());
   } catch(e) {
-    console.warn("Could not find rooms.json file");
+    console.warn("Could not find calendar-resources.json file");
   }
 
   function getPrimaryCalendar(oauth, cb) {

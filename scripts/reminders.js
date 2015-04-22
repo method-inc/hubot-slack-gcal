@@ -174,11 +174,11 @@ module.exports = function(robot) {
                           }
                         });
                         if(new_attendees.length > 0) {
-                          helpers.dm(user, _.map(new_attendees, function(a) { return a.displayName || a.email; }).join(", ") + " was invited to " + format_event_name(new_event));
+                          helpers.dm(user, _.map(new_attendees, function(a) { return a.displayName || a.email; }).join(", ") + " was invited to " + helpers.format_event_name(new_event));
                           robot.emit("google:calendar:actionable_event", user, new_event);
                         }
                         _.each(updated_attendees, function(a) {
-                          helpers.dm(user, (a.displayName || a.email) + " *" + status_text[a.responseStatus] + "* the event " + format_event_name(new_event));
+                          helpers.dm(user, (a.displayName || a.email) + " *" + status_text[a.responseStatus] + "* the event " + helpers.format_event_name(new_event));
                           robot.emit("google:calendar:actionable_event", user, new_event);
                         });
                       }
