@@ -1,0 +1,29 @@
+{
+  "name": "hubot-slack-gcal",
+  "version": "0.1.0",
+  "description": "Create events & get calendar updates from slack",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Skookum/hubot-slack-gcal"
+  },
+  "dependencies": {
+    "underscore": "1.7.0",
+    "express": ">= 3.0.0 < 4.0.0",
+    "node-uuid": "1.4.2",
+    "googleapis": "1.0.21",
+    "moment": "^2.8.4",
+    "twix": "^0.6.3"
+  },
+  "keywords": [
+    "hubot",
+    "hubot-scripts",
+    "google",
+    "calendar"
+  ],
+  "author": "David Becher <david@skookum.com>",
+  "license": "MIT"
+}
