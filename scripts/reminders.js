@@ -32,11 +32,14 @@ module.exports = function(robot) {
 
   // set up watch renewal and get initial events list on startup
   _.delay(function() {
-    _.each(robot.brain.users(), function(u) {
-      if(u.calendar_notify_events) {
-        setup_watch_renewal(u);
-        u.last_event_update = undefined;
-        getEvents(u);
+    _.each(robot.brain.users(), function(user) {
+      if(user.deleted) {
+        return disable_calendar_reminders(user);
+      }
+      if(user.calendar_notify_events) {
+        setup_watch_renewal(user);
+        user.last_event_update = undefined;
+        getEvents(user);
       }
     });
   }, 10000); // hack to wait for data to load from redis
@@ -215,6 +218,12 @@ module.exports = function(robot) {
       });
     });
   }
+  
+  function disable_calendar_reminders(user) {
+    user.calendar_notify_events = false;
+    user.calendar_watch_token = null;
+    user.calendar_watch_expiration = null;
+  }
 
 
   app.post('/google/calendar/webhook', function(req, res) {
@@ -222,10 +231,17 @@ module.exports = function(robot) {
         resource_id = req.get("X-Goog-Resource-ID"),
         state = req.get("X-Goog-Resource-State"),
         expires = req.get("X-Goog-Channel-Expiration");
-    var user = _.find(robot.brain.users(), function(u) {
-      return u.calendar_watch_token == channel_id;
-    });
-    if(user) getEvents(user);
+    if(state === "exists") {
+      var user = _.find(robot.brain.users(), function(u) {
+        return u.calendar_watch_token == channel_id;
+      });
+      if(user) getEvents(user);
+      else {
+        googleapis
+          .calendar('v3')
+          .channels.stop({id: channel_id, resourceId: resource_id}, function(){});
+      }
+    }
     res.send(201);
   });
 
@@ -256,7 +272,7 @@ module.exports = function(robot) {
   });
 
   robot.respond(/disable calendar reminders/i, function(msg) {
-    msg.message.user.calendar_notify_events = false;
+    disable_calendar_reminders(msg.message.user);
     if(events[msg.message.user.id]) delete events[msg.message.user.id];
     msg.reply("OK, I won't remind you about upcoming events.");
   });
