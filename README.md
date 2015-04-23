@@ -2,6 +2,8 @@
 
 Provides commands for creating & responding to events in Google Calendar, as well as checking resource status and booking resources. It also has the ability to remind users of upcoming events and notifying users when their events are updated.
 
+![](servo-calendar.gif)
+
 ## Configuration
 
 This script depends on the [hubot-slack-google-auth](https://github.com/Skookum/hubot-slack-google-auth) script, which should com first in your `external-scripts.json` file. In addition to the environment variables described there, make sure `HUBOT_GOOGLE_SCOPES` variable contains `https://www.googleapis.com/auth/calendar`.
