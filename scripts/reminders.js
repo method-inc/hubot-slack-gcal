@@ -33,7 +33,9 @@ module.exports = function(robot) {
   // set up watch renewal and get initial events list on startup
   _.delay(function() {
     _.each(robot.brain.users(), function(user) {
-      if(user.deleted) {
+      var slack_user = robot.adapter.client.getUserByName(user.name);
+      if(slack_user && slack_user.deleted) {
+        console.log(slack_user.name + " is deleted");
         return disable_calendar_reminders(user);
       }
       if(user.calendar_notify_events) {
