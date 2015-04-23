@@ -3,6 +3,7 @@
 //
 // Commands:
 //   hubot enable calendar reminders
+//   hubot disable calendar reminders
 
 module.exports = function(robot) {
   var _ = require('underscore'),
