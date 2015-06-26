@@ -7,13 +7,20 @@
 //   hubot reserve me <room> for <event> - creates an event with the given quick add text and invites the given room
 //   hubot invite <usernames> - invite the given usernames to the last event
 //   hubot reply <yes|no|maybe> - reply to the last event
+//   hubot find a time <when> with <people> for <event name> - find a time when everyone is available
 
 module.exports = function(robot) {
   var _ = require('underscore'),
       helpers = require('../lib/helpers'),
       Util = require("util"),
       Fs = require("fs"),
-      googleapis = require('googleapis');
+      googleapis = require('googleapis'),
+    	chrono = require('chrono-node'),
+      moment = require("moment");
+  require('twix');
+  
+  var START_OF_DAY = 9,
+  		END_OF_DAY = 17;
 
   var groups = {};
   try {
@@ -31,7 +38,7 @@ module.exports = function(robot) {
     googleapis
       .calendar('v3')
       .calendarList.list({minAccessRole: 'owner', auth: oauth}, function(err, data) {
-        if(err) return cb(err);
+
         cb(undefined, _.find(data.items, function(c) {
           return c.primary;
         }));
@@ -40,6 +47,62 @@ module.exports = function(robot) {
 
   robot.on("google:calendar:actionable_event", function(user, event) {
     user.last_event = event.id;
+  });
+  
+  
+  robot.respond(/find a time( (.+?))?( with (.+))? for (.+)/i, function(msg) {
+    robot.emit('google:authenticate', msg, function(err, oauth) {
+    	console.log(msg.match);
+      var event_name = msg.match[5],
+					time_text = msg.match[2],
+      		participant_text = msg.match[4];
+      
+      // get participant emails for this event
+      // if a list of usernames was provided, use that
+			var emails;
+      if(participant_text) {
+        try {
+        	emails = _.pluck(helpers.get_emails_from_usernames(robot, participant_text.split(' ')), 'email');
+        } catch(e) {
+        	msg.reply(e);
+        }
+      }
+      // otherwise, invite all members of the current channel
+      else {
+      	var channel = robot.adapter.client.getChannelGroupOrDMByName(msg.message.room);
+      	if(channel && channel.members) {
+      		emails = _.compact(_.map(channel.members, function(user_id) {
+      			var user = robot.adapter.client.getUserByID(user_id);
+      			if(!user || user.is_bot || !user.profile.email) return;
+      			return user.profile.email;
+      		}));
+      	}
+      	else {
+      		return msg.send("Couldn't get participants in this channel, try specifying them in the command.");
+      	}
+      }
+      
+      // get start and end time for this request
+      // if a time is specified, use that
+      var start_time, end_time;
+      if(time_text) {
+      	var parsed_time = chrono.parse(time_text);
+      	if(!parsed_time[0]) return msg.reply("Sorry, I couldn't get a time range from " + time_text);
+      	var r = parsed_time[0];
+				// if either start or end hour of day was implied (as opposed to explicitly stated),
+				// set it to the beginning and end of work day
+      	if(typeof r.start.impliedValues.hour !== 'undefined') r.start.imply('hour', START_OF_DAY);
+      	if(r.end && typeof r.end.impliedValues.hour !== 'undefined') r.end.imply('hour', END_OF_DAY);
+      	start_time = moment(r.start.date());
+      	end_time = (!!r.end ? moment(r.end.date()) : moment(start_time).hour(END_OF_DAY));
+      }
+      else {
+      	start_time = moment();
+      	end_time = moment(start_time).hour(END_OF_DAY);
+      }
+			var range = start_time.twix(end_time);
+      msg.reply("Here are the times " + emails.join(", ") + " are available " + range.format());
+    });
   });
 
   robot.respond(/(which|what|are any|are there any) (.+)s (are )?(available|free|open)/i, function(msg) {
@@ -116,21 +179,13 @@ module.exports = function(robot) {
       getPrimaryCalendar(oauth, function(err, calendar_o) {
         if(err || !calendar_o) return msg.reply("Could not find your primary calendar");
         var calendar = calendar_o.id;
-        var emails = _.compact(_.map(_.compact(msg.match[1].split(' ')), function(username) {
-          var user;
-          if(username.indexOf('<') === 0) {
-            user = robot.adapter.client.getUserByID(username.replace('<', '').replace('>', '').replace('@', ''));
-          }
-          else {
-            user = robot.adapter.client.getUserByName(username.replace('@', ''));
-          }
-          if(!user || !user.profile || !user.profile.email) {
-            msg.reply("I dont know who " + username + " is");
-            return null;
-          }
-          return { email: user.profile.email };
-        }));
-        if(emails.length == 0) return msg.reply('No valid users given');
+        var emails;
+        try {
+        	emails = helpers.get_emails_from_usernames(robot, msg.match[1].split(' '));
+        } catch(e) {
+        	msg.reply(e);
+        }
+        if(emails && emails.length == 0) return msg.reply('No valid users given');
         googleapis.calendar('v3').events.get({ auth: oauth, alwaysIncludeEmail: true, calendarId: calendar, eventId: event }, function(err, event) {
           if(err) return msg.reply('Error getting event: ' + err);
           var current_emails = _.map(event.attendees, function(a) {
