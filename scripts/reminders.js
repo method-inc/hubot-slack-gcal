@@ -9,6 +9,7 @@ module.exports = function(robot) {
   var _ = require('underscore'),
       Util = require("util"),
       helpers = require('../lib/helpers'),
+      gcal = require('../lib/gcal'),
       googleapis = require('googleapis'),
       CALLBACK_URL= process.env.HUBOT_URL + "/google/calendar/webhook",
       uuid = require('node-uuid'),
@@ -221,13 +222,55 @@ module.exports = function(robot) {
       });
     });
   }
-  
+
   function disable_calendar_reminders(user) {
     user.calendar_notify_events = false;
     user.calendar_watch_token = null;
     user.calendar_watch_expiration = null;
   }
 
+  robot.adapter.client.on('raw_message', function(message) {
+    if(message.type === 'reaction_added') handleReaction(message);
+  });
+
+  var reaction_statuses = {
+    "declined": ['-1', 'thumbsdown'],
+    "tentative": ['point_up'],
+    "accepted": ['+1', 'thumbsup']
+  };
+  function handleReaction(reaction) {
+    if(!events[reaction.user] || reaction.item.type !== 'message') return;
+    robot.adapter.client._apiCall('im.history', {channel: reaction.item.channel, latest: reaction.item.ts, oldest: reaction.item.ts, inclusive: 1, count: 1}, function(history) {
+      var item = history.messages[0];
+      // if we have events for this user and it's a message from hubot
+      if(item
+         && item.user === robot.adapter.self.id
+         && item.attachments) {
+        var event = _.find(events[reaction.user], function(event) {
+          return _.any(item.attachments, function(attachment) {
+            console.log(attachment.title_link);
+            return attachment.title_link === event.htmlLink;
+          });
+        });
+        if(event) {
+          var status;
+          _.each(reaction_statuses, function(reactions, s) {
+            if(_.indexOf(reactions, reaction.reaction) !== -1) status = s;
+          });
+          var full_user = robot.adapter.client.getUserByID(reaction.user);
+          if(!status || !full_user) return;
+          robot.emit('google:authenticate', full_user,
+          function(err, oauth) {
+            if(!err && oauth) {
+              gcal.rsvp(oauth, event.id, status, function(err, event) {
+                if(!err) helpers.dm(robot, full_user, "You " + status + " the event *" + event.summary + "*");
+              });
+            }
+          });
+        }
+  	  }
+    });
+  }
 
   app.post('/google/calendar/webhook', function(req, res) {
     var channel_id = req.get("X-Goog-Channel-ID"),

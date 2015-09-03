@@ -11,6 +11,7 @@
 module.exports = function(robot) {
   var _ = require('underscore'),
       helpers = require('../lib/helpers'),
+      gcal = require('../lib/gcal'),
       Util = require("util"),
       Fs = require("fs"),
       googleapis = require('googleapis');
@@ -21,21 +22,10 @@ module.exports = function(robot) {
   } catch(e) {
     console.warn("Could not find calendar-resources.json file");
   }
-  
+
   function reply_with_new_event(msg, event, pretext) {
     var attachment = helpers.event_slack_attachment(event, pretext);
     robot.emit('slack.attachment', {channel: msg.message.room, attachments: [attachment]});
-  }
-
-  function getPrimaryCalendar(oauth, cb) {
-    googleapis
-      .calendar('v3')
-      .calendarList.list({minAccessRole: 'owner', auth: oauth}, function(err, data) {
-        if(err) return cb(err);
-        cb(undefined, _.find(data.items, function(c) {
-          return c.primary;
-        }));
-      });
   }
 
   robot.on("google:calendar:actionable_event", function(user, event) {
@@ -70,7 +60,7 @@ module.exports = function(robot) {
 
   robot.respond(/(book|reserve) (me )?(.+) for (.+)/i, function(msg) {
     robot.emit('google:authenticate', msg, function(err, oauth) {
-      getPrimaryCalendar(oauth, function(err, calendar) {
+      gcal.getPrimaryCalendar(oauth, function(err, calendar) {
         if(err || !calendar) return msg.reply("Could not find your primary calendar");
         var room_name = msg.match[3].toLowerCase(), room;
         _.each(groups, function(group) {
@@ -94,7 +84,7 @@ module.exports = function(robot) {
 
   robot.respond(/create(me )?( an)? event (.*)/i, function(msg) {
     robot.emit('google:authenticate', msg, function(err, oauth) {
-      getPrimaryCalendar(oauth, function(err, calendar) {
+      gcal.getPrimaryCalendar(oauth, function(err, calendar) {
         if(err || !calendar) return msg.reply("Could not find your primary calendar");
         googleapis
         .calendar('v3')
@@ -113,7 +103,7 @@ module.exports = function(robot) {
     robot.emit('google:authenticate', msg, function(err, oauth) {
       var event = msg.message.user.last_event;
       if(!event) return msg.reply('I dont know what event you\'re talking about!');
-      getPrimaryCalendar(oauth, function(err, calendar_o) {
+      gcal.getPrimaryCalendar(oauth, function(err, calendar_o) {
         if(err || !calendar_o) return msg.reply("Could not find your primary calendar");
         var calendar = calendar_o.id;
         var emails = _.compact(_.map(_.compact(msg.match[1].split(' ')), function(username) {
@@ -154,20 +144,10 @@ module.exports = function(robot) {
     robot.emit('google:authenticate', msg, function(err, oauth) {
       var event = msg.message.user.last_event;
       if(!event) return msg.reply('I dont know what event you\'re talking about!');
-      getPrimaryCalendar(oauth, function(err, calendar_o) {
-        if(err || !calendar_o) return msg.reply("Could not find your primary calendar");
-        var calendar = calendar_o.id;
-        googleapis.calendar('v3').events.get({ auth: oauth, alwaysIncludeEmail: true, calendarId: calendar, eventId: event }, function(err, event) {
-          if(err) return msg.reply('Error getting event: ' + err);
-          var attendees = event.attendees;
-          var me = _.find(attendees, function(a) { return a.self });
-          if(!me) return msg.reply("You are not invited to " + event.summary);
-          me.responseStatus = response_map[msg.match[2]];
-          googleapis.calendar('v3').events.patch({ auth: oauth, calendarId: calendar, eventId: event.id, resource: { attendees: attendees } }, function(err, event) {
-            if(err) return msg.reply('Error saving status: ' + err);
-            msg.reply("OK, you responded " + msg.match[2] + " to " + event.summary);
-          });
-        });
+      var status = response_map[msg.match[2]]
+      gcal.rsvp(oauth, event, status, function(err, event) {
+      	if(err) return msg.reply(err);
+        msg.reply("OK, you responded " + msg.match[2] + " to " + event.summary);
       });
     });
   });
