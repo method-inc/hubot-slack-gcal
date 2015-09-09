@@ -157,11 +157,20 @@ module.exports = function(robot) {
                     if(recurrences[new_event.recurringEventId]) return _.extend(old_event, new_event);
                     recurrences[new_event.recurringEventId] = true;
                   }
-                  var reply = "", changes = false;
+                  var changes = false, reply = "", attachment = {
+                    title: new_event.summary,
+                    title_link: new_event.htmlLink,
+                    fields: []
+                  };
                   _.each(new_event, function(v, new_key) {
                     if(!_.isEqual(new_event[new_key], old_event[new_key])) {
                       if(_.contains(['summary', 'description', 'location'], new_key)) {
                         changes = true;
+                        attachment.fields.push({
+                          title: "New " + new_key,
+                          value: new_event[new_key],
+                          "short": (new_key !== "description")
+                        });
                         reply += "\n*New " + new_key + ":* " + new_event[new_key];
                       }
                       // notify of attendee updates separately, only for your own events
@@ -192,11 +201,17 @@ module.exports = function(robot) {
                       new_end = new_event.end.dateTime || new_event.end.date;
                   if(old_start != new_start || old_end != new_end) {
                     changes = true;
+                    attachment.fields.push({
+                      title: "New Time",
+                      value: helpers.format_event_date_range(new_event),
+                      "short": true
+                    });
                     reply += "\nIt's now at *" + helpers.format_event_date_range(new_event) + "*";
                   }
                   if(changes) {
                     reply = "The event " + helpers.format_event_name(old_event) + " has been updated:" + reply;
-                    helpers.dm(robot, user, reply);
+                    attachment.fallback = reply;
+                    helpers.dm(robot, user, "The event " + helpers.format_event_name(old_event) + " has been updated:", attachment);
                     robot.emit("google:calendar:actionable_event", user, new_event);
                   }
                   _.extend(old_event, new_event);
@@ -248,7 +263,6 @@ module.exports = function(robot) {
          && item.attachments) {
         var event = _.find(events[reaction.user], function(event) {
           return _.any(item.attachments, function(attachment) {
-            console.log(attachment.title_link);
             return attachment.title_link === event.htmlLink;
           });
         });
