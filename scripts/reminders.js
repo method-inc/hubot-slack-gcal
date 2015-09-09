@@ -208,7 +208,7 @@ module.exports = function(robot) {
                     });
                     reply += "\nIt's now at *" + helpers.format_event_date_range(new_event) + "*";
                   }
-                  if(changes) {
+                  if(changes && !new_event.creator.self) {
                     reply = "The event " + helpers.format_event_name(old_event) + " has been updated:" + reply;
                     attachment.fallback = reply;
                     helpers.dm(robot, user, "The event " + helpers.format_event_name(old_event) + " has been updated:", attachment);
