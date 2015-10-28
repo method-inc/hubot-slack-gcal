@@ -6,7 +6,6 @@ module.exports = function(robot) {
   if (fs.existsSync(path)) {
     fs.readdirSync(path).forEach(function(file) {
       robot.loadFile(path, file);
-      robot.parseHelp(Path.join(path, file));
     });
   }
 };
