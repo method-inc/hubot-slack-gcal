@@ -8,6 +8,8 @@ Provides commands for creating & responding to events in Google Calendar, as wel
 
 This script depends on the [hubot-slack-google-auth](https://github.com/Skookum/hubot-slack-google-auth) script, which should com first in your `external-scripts.json` file. In addition to the environment variables described there, make sure `HUBOT_GOOGLE_SCOPES` variable contains `https://www.googleapis.com/auth/calendar`.
 
+Enable the Google Calendar API in the [Google Developers Console](https://console.developers.google.com).
+
 ### Webhooks
 
 Calendar reminders & event updates depend on [push notifications](https://developers.google.com/google-apps/calendar/v3/push). For these to work, you'll need to register the domain of your hubot instance (should be the same as the `HUBOT_URL` env variable) in the developer console and verify ownership using webmaster tools. Whenever someone enables calendar reminders, the script will handle creating and renewing the webhook.
